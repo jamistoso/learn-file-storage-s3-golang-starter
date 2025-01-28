@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
@@ -62,7 +64,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusInternalServerError, "Couldn't get video", err)
 		return
 	}
-
 	if video.UserID != userID {
 		respondWithError(w, http.StatusUnauthorized, "User does not own video", err)
 		return
@@ -74,7 +75,14 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	filePath := filepath.Join("./assets/", fmt.Sprintf("%s%s", videoID.String(), extension))
+	randomPath := make([]byte, 32)
+	_, err = rand.Read(randomPath)
+	encodedPath := base64.URLEncoding.EncodeToString(randomPath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create random number", err)
+		return
+	}
+	filePath := filepath.Join("./assets/", fmt.Sprintf("%s%s", encodedPath, extension))
 	newFile, err := os.Create(filePath)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create file on disk", err)
@@ -87,7 +95,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	thumbnailURL := fmt.Sprintf("http://localhost:%s/assets/%s%s", cfg.port, videoID, extension)
+	thumbnailURL := fmt.Sprintf("http://localhost:%s/assets/%s%s", cfg.port, encodedPath, extension)
 	
 	updatedVideo := database.Video{
 		ID: videoID,
